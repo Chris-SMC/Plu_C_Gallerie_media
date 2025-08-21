@@ -450,6 +450,78 @@ public class MediaPlugin extends Plugin {
 
         return newFile;
     }
+@PluginMethod
+public void getPhotosFromAlbum(PluginCall call) {
+    String albumPath = call.getString("albumPath");
+    if (albumPath == null) {
+        call.reject("albumPath requis");
+        return;
+    }
+
+    Context context = getContext();
+    JSArray photos = new JSArray();
+
+    // Requête MediaStore pour les images
+    String[] projection = {
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME
+    };
+
+    String selection = MediaStore.Images.Media.DATA + " LIKE ?";
+    String[] selectionArgs = new String[]{ albumPath + "/%" };
+
+    Cursor cursor = context.getContentResolver().query(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        projection,
+        selection,
+        selectionArgs,
+        MediaStore.Images.Media.DATE_ADDED + " DESC"
+    );
+
+    if (cursor != null) {
+        int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+
+        while (cursor.moveToNext()) {
+            long id = cursor.getLong(idColumn);
+
+            Uri contentUri = Uri.withAppendedPath(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    String.valueOf(id)
+            );
+
+            JSObject photo = new JSObject();
+            photo.put("path", contentUri.toString()); // utilisable dans <img src="content://...">
+            photos.put(photo);
+        }
+        cursor.close();
+    }
+
+    JSObject result = new JSObject();
+    result.put("photos", photos);
+    call.resolve(result);
+}
+
+// @PluginMethod
+// public void getPhotoData(PluginCall call) {
+//     String path = call.getString("path");
+//     if (path == null) {
+//         call.reject("Path requis");
+//         return;
+//     }
+//     File file = new File(path);
+//     try {
+//         FileInputStream fis = new FileInputStream(file);
+//         byte[] bytes = new byte[(int) file.length()];
+//         fis.read(bytes);
+//         fis.close();
+//         String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+//         JSObject result = new JSObject();
+//         result.put("data", base64);
+//         call.resolve(result);
+//     } catch (Exception e) {
+//         call.reject("Erreur lecture fichier: " + e.getMessage());
+//     }
+// }
 
     private void scanPhoto(File imageFile) {
         Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
